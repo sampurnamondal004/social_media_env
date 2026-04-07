@@ -43,7 +43,7 @@ server = "social_media_env.server.app:main"
 packages = ["social_media_env", "social_media_env.server"]
 package-dir = { 
     "social_media_env" = ".", 
-    "social_media_env.server" = "server",
+    "social_media_env.server" = "server"
     
 }
 
