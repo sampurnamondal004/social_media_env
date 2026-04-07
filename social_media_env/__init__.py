@@ -1,16 +1,28 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
+"""
+Social Media Feed Ranking Environment for OpenEnv.
 
-"""Social Media Env Environment."""
+This module provides OpenEnv integration for social media feed ranking,
+simulating user engagement with posts to train recommendation agents.
 
-from .client import SocialMediaEnv
-from .models import SocialMediaAction, SocialMediaObservation
+Example:
+    >>> from envs.social_feed_env import SocialFeedEnv, FeedAction
+    >>>
+    >>> # Connect to a running server or start via Docker
+    >>> env = SocialFeedEnv.from_docker_image("social-feed-env:latest")
+    >>>
+    >>> # Reset and interact
+    >>> result = env.reset()
+    >>> print(result.observation.user_interests)
+    >>> print(result.observation.candidate_posts)
+    >>>
+    >>> # Agent selects post at index 3 from candidates
+    >>> result = env.step(FeedAction(post_index=3))
+    >>> print(result.reward, result.done)
+    >>>
+    >>> # Cleanup
+    >>> env.close()
+"""
+from .client import SocialFeedEnv
+from .models import FeedAction, FeedObservation, FeedState
 
-__all__ = [
-    "SocialMediaAction",
-    "SocialMediaObservation",
-    "SocialMediaEnv",
-]
+__all__ = ["SocialFeedEnv", "FeedAction", "FeedObservation", "FeedState"]

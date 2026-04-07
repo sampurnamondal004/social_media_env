@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openenv-social-feed-env"
+version = "0.1.0"
+description = "Social Media Feed Ranking Environment for OpenEnv"
+requires-python = ">=3.10"
+dependencies = [
+    "openenv-core[core]>=0.2.2",
+    "fastapi>=0.115.0",
+    "pydantic>=2.0.0",
+    "uvicorn[standard]>=0.24.0",
+    "requests>=2.31.0",
+    "numpy>=1.24.0",
+    "gymnasium>=0.29.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
+rl = [
+    "stable-baselines3>=2.0.0",
+    "torch>=2.0.0",
+    "tensorboard>=2.14.0",
+]
+viz = [
+    "matplotlib>=3.7.0",
+    "seaborn>=0.12.0",
+    "plotly>=5.17.0",
+]
+
+[project.scripts]
+server = "social_media_env.server.app:main"
+
+
+[tool.setuptools]
+packages = ["social_media_env", "social_media_env.server"]
+package-dir = { 
+    "social_media_env" = ".", 
+    "social_media_env.server" = "server",
+    
+}
+
