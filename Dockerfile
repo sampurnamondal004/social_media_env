@@ -7,7 +7,7 @@ COPY . /app
 
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir -e ./OpenEnv
+RUN pip install --no-cache-dir -e ./social_media_env/server/
 
 # Set the path so Python can find your modules
 ENV PYTHONPATH="/app"
