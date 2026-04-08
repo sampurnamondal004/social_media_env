@@ -22,7 +22,7 @@ ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
 # Expose port
-EXPOSE 8000
+EXPOSE 7860
 
 # Run the server
 CMD ["python", "-m", "social_media_env.server.app"]
