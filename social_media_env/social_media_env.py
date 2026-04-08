@@ -69,7 +69,7 @@ class FeedRankingEnvironment(Environment):
             step_count=0,
             cumulative_reward=0.0,
             feed=[],
-            placed_ids=set(),
+            placed_ids=[],
             topic_counts={},
             source_counts={},
             user_interest_vector=interests,
@@ -106,7 +106,7 @@ class FeedRankingEnvironment(Environment):
         reward, breakdown = self._rubric(post, state, slot_index)
 
         state.feed.append(post.post_id)
-        state.placed_ids.add(post.post_id)
+        state.placed_ids.append(post.post_id)
         state.topic_counts[post.topic] = state.topic_counts.get(post.topic, 0) + 1
         state.source_counts[post.source] = state.source_counts.get(post.source, 0) + 1
         
