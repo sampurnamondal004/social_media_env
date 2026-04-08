@@ -12,7 +12,7 @@ from social_media_env.models import (
     FeedRankingObservation,
     FeedRankingState,
 )
-from .client import EnvClient
+#from .client import EnvClient
 
 class Post:
     """A candidate post that can be placed in the feed."""
@@ -45,12 +45,7 @@ class FeedRankingEnvironment(Environment):
         base_url: str | None = None,  
         **kwargs
     ):
-        # Determine the URL before initializing the client
-        # Use the passed argument, OR the environment variable, OR a fallback
-        self.api_base_url = base_url or os.getenv("API_BASE_URL", "https://api.openai.com/v1")
-        
-        # CRITICAL: Pass 'self.api_base_url', NOT the 'base_url' argument
-        self.client = EnvClient(base_url=self.api_base_url)
+       
 
         self._feed_slots  = feed_slots
         self._pool_size   = pool_size
@@ -60,6 +55,7 @@ class FeedRankingEnvironment(Environment):
         self._rubric = reward_.FeedRankingRubric()
         self._state: FeedRankingState | None = None
         self.reset()
+        
     # --- Public API ---
 
     def reset(self) -> FeedRankingObservation:
