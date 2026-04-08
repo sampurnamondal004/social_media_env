@@ -7,10 +7,10 @@ from __future__ import annotations
 from typing import Any, Dict
 from openenv.core.client_types import StepResult
 from openenv.core.env_client import EnvClient
-from .models import FeedAction, FeedObservation, FeedState
+from social_media_env.models import FeedRankingAction, FeedRankingObservation, FeedRankingState
 
 
-class SocialFeedEnv(EnvClient[FeedAction, FeedObservation, FeedState]):
+class SocialFeedEnv(EnvClient[FeedRankingAction, FeedRankingObservation, FeedRankingState]):
     """
     Client for Social Media Feed Ranking Environment.
     
@@ -32,7 +32,7 @@ class SocialFeedEnv(EnvClient[FeedAction, FeedObservation, FeedState]):
         ...     print(result.reward, result.done)
     """
 
-    def _step_payload(self, action: FeedAction) -> Dict[str, Any]:
+    def _step_payload(self, action: FeedRankingAction) -> Dict[str, Any]:
         """
         Convert FeedAction to JSON payload for step request.
         
@@ -46,7 +46,7 @@ class SocialFeedEnv(EnvClient[FeedAction, FeedObservation, FeedState]):
             "post_index": action.post_index,
         }
 
-    def _parse_result(self, payload: Dict[str, Any]) -> StepResult[FeedObservation]:
+    def _parse_result(self, payload: Dict[str, Any]) -> StepResult[FeedRankingObservation]:
         """
         Parse server response into StepResult[FeedObservation].
         
@@ -57,7 +57,7 @@ class SocialFeedEnv(EnvClient[FeedAction, FeedObservation, FeedState]):
             StepResult with FeedObservation.
         """
         obs_data = payload.get("observation", {})
-        observation = FeedObservation(
+        observation = FeedRankingObservation(
             user_interests=obs_data.get("user_interests", []),
             user_context=obs_data.get("user_context", {}),
             candidate_posts=obs_data.get("candidate_posts", []),
@@ -74,7 +74,7 @@ class SocialFeedEnv(EnvClient[FeedAction, FeedObservation, FeedState]):
             done=observation.done,
         )
 
-    def _parse_state(self, payload: Dict[str, Any]) -> FeedState:
+    def _parse_state(self, payload: Dict[str, Any]) -> FeedRankingState:
         """
         Parse server response into FeedState object.
         
@@ -84,7 +84,7 @@ class SocialFeedEnv(EnvClient[FeedAction, FeedObservation, FeedState]):
         Returns:
             FeedState object with environment state information.
         """
-        return FeedState(
+        return FeedRankingState(
             episode_id=payload.get("episode_id", ""),
             user_profile=payload.get("user_profile", {}),
             shown_post_ids=payload.get("shown_post_ids", []),

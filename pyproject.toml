@@ -38,12 +38,6 @@ viz = [
 [project.scripts]
 server = "social_media_env.server.app:main"
 
-
-[tool.setuptools]
-packages = ["social_media_env", "social_media_env.server"]
-package-dir = { 
-    "social_media_env" = ".", 
-    "social_media_env.server" = "server"
-    
-}
-
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["social_media_env*"]

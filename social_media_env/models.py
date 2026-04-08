@@ -2,7 +2,7 @@ from __future__ import annotations
 
 #import random
 #import uuid
-#from dataclasses import dataclass, field
+from dataclasses import dataclass, field
 from typing import Any
 from openenv.core.env_server import Action, Observation, State
 #import pandas as pd
@@ -23,7 +23,7 @@ class FeedRankingAction(Action):
         invalid IDs incur a small penalty without terminating the episode.
     """
 
-    post_id: str
+    post_id: int
 
 
 # ---------------------------------------------------------------------------
@@ -50,7 +50,7 @@ class FeedRankingObservation(Observation):
 
         .. code-block:: text
 
-            post_id        str    unique post identifier
+            post_id        int   unique post identifier
             topic          str    content category (e.g. "tech", "sports")
             source         str    publisher / account id
             age_hours      float  how old the post is
@@ -104,17 +104,14 @@ class FeedRankingObservation(Observation):
             wasted_step      bool  True if the feed was already full
     """
 
-    feed:                  List[str]         = Field(default_factory=list)
-    candidate_pool:        List[Dict]         = Field(default_factory=list)
-    user_interest_vector:  Dict[str, float]   = Field(default_factory=dict)
-    step:                  int                = 0
-    max_steps:             int                = 20
-    reward:                float              = 0.0
-    cumulative_reward:     float              = 0.0
-    done:                  bool               = False
-    result:                Optional[str]      = None
-    info:                  Dict               = Field(default_factory=dict)
-
+    user_interests: List[str] = Field(default_factory=list)
+    user_context: Dict[str, Any] = Field(default_factory=dict)
+    candidate_posts: List[Dict] = Field(default_factory=list)
+    session_progress: float = 0.0
+    engagement_history: List[Any] = Field(default_factory=list)
+    done: bool = False
+    reward: float = 0.0
+    metadata: Dict = Field(default_factory=dict)
 
 # ---------------------------------------------------------------------------
 # State
@@ -163,18 +160,19 @@ class FeedRankingState(State):
         Running sum of per-step rewards.  Mirrored into every observation.
     """
 
-    episode_id:           str               = ""
-    step_count:           int               = 0
-    feed:                 List[str]         = Field(default_factory=list)
-    placed_ids:           List[str]         = Field(default_factory=list)
-    topic_counts:         Dict[str, int]    = Field(default_factory=dict)
-    source_counts:        Dict[str, int]    = Field(default_factory=dict)
-    user_interest_vector: Dict[str, float]  = Field(default_factory=dict)
-    candidate_pool:       List[Dict]        = Field(default_factory=list)
-    cumulative_reward:    float             = 0.0
-
+    episode_id: str = ""
+    user_profile: Dict = Field(default_factory=dict)
+    shown_post_ids: List[str] = Field(default_factory=list)
+    total_engagement: float = 0.0
+    step_count: int = 0
+    avg_engagement: float = 0.0
 if __name__ == "__main__":
-    print("🚀 Environment loaded successfully!")
+    print("Environment loaded successfully!")
     # Let's try to create an instance of your action
     test_action = FeedRankingAction(post_id="test_123")
     print(f"Action created: {test_action.post_id}")
+
+#
+FeedAction = FeedRankingAction
+FeedObservation = FeedRankingObservation
+FeedState = FeedRankingState

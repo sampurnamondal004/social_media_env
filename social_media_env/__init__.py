@@ -23,6 +23,10 @@ Example:
     >>> env.close()
 """
 from .client import SocialFeedEnv
-from .models import FeedAction, FeedObservation, FeedState
-
-__all__ = ["SocialFeedEnv", "FeedAction", "FeedObservation", "FeedState"]
+from .models import FeedRankingState, FeedRankingAction, FeedRankingObservation
+FeedRankingEnvironment = SocialFeedEnv
+__all__ = ["SocialFeedEnv", 
+           "FeedRankingAction", 
+           "FeedRankingObservation", 
+           "FeedRankingState", 
+           "FeedRankingEnvironment"]

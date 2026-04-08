@@ -1,7 +1,7 @@
 """FastAPI application for the Social Media Feed Ranking Environment."""
 from openenv.core.env_server import create_app
-from model import FeedRankingAction, FeedRankingObservation
-from social_media_env import FeedRankingEnvironment
+from ..models import FeedRankingAction, FeedRankingObservation
+from .. import FeedRankingEnvironment
 
 # Create the FastAPI app
 # Pass the class (factory) instead of an instance for WebSocket session support
@@ -16,7 +16,7 @@ app = create_app(
 def main():
     """Entry point for the server script."""
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("social_media_env.server.app:app", host="0.0.0.0", port=8000)
 
 
 if __name__ == "__main__":

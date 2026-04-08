@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  social-feed-env:
+    build: .
+    container_name: social_feed_env
+    ports:
+      - "8000:8000"
+    environment:
+      - API_BASE_URL=${API_BASE_URL:-https://api.openai.com/v1}
+      - MODEL_NAME=${MODEL_NAME:-gpt-4}
+      - HF_TOKEN=${HF_TOKEN}
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+    env_file:
+      - .env
+    volumes:
+      - ./social_media_env:/app/social_media_env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
