@@ -1,5 +1,5 @@
 """FastAPI application for the Social Media Feed Ranking Environment."""
- import os
+import os
 from openenv.core.env_server import create_app
 from ..models import FeedRankingAction, FeedRankingObservation
 from .. import FeedRankingEnvironment
