@@ -50,6 +50,7 @@ class FeedRankingEnvironment(Environment):
         **kwargs
     ):
         self.base_url = base_url or os.getenv("API_BASE_URL", "https://api.openai.com/v1")
+        self.client = EnvClient(base_url=self.base_url)
         """
         Parameters
         ----------
@@ -64,8 +65,7 @@ class FeedRankingEnvironment(Environment):
         self._max_steps   = max_steps
         self._user_profile = user_profile
         self._rng = random.Random(seed)
-        self._rubric = reward_.FeedRankingRubric()
-        self.client = EnvClient(base_url=self.base_url) 
+        self._rubric = reward_.FeedRankingRubric() 
         self._state: FeedRankingState | None = None
         self.reset()
 
