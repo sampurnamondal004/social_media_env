@@ -1,15 +1,19 @@
 """social_media_env_environment.py"""
+import os
 import random
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Any, Dict
-
+from .client import EnvClient
 import numpy as num
 from openenv.core.env_server import Environment
-from reward import FeedRankingRubric, RewardBreakdown  
+import social_media_env.reward as reward_  
+#class FeedRankingEnvironment:
+ #   def __init__(self):
+  #      self.rubric = reward_.FeedRankingRubric()
+   #     self.breakdown = reward_.RewardBreakdown()
 
-# Pydantic Action / Observation / State models (OpenEnv interface types)
-from model import (
+from social_media_env.models import (
     FeedRankingAction,
     FeedRankingObservation,
     FeedRankingState,
@@ -42,7 +46,10 @@ class FeedRankingEnvironment(Environment):
         max_steps: int = 50,
         user_profile: dict[str, float] | None = None,
         seed: int | None = None,
+        base_url: str | None = None,  
+        **kwargs
     ):
+        self.base_url = base_url or os.getenv("API_BASE_URL", "https://api.openai.com/v1")
         """
         Parameters
         ----------
@@ -57,7 +64,8 @@ class FeedRankingEnvironment(Environment):
         self._max_steps   = max_steps
         self._user_profile = user_profile
         self._rng = random.Random(seed)
-        self._rubric = FeedRankingRubric()
+        self._rubric = reward_.FeedRankingRubric()
+        self.client = EnvClient(base_url=self.base_url) 
         self._state: FeedRankingState | None = None
         self.reset()
 

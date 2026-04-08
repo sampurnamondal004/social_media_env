@@ -43,7 +43,7 @@ class SocialFeedEnv(EnvClient[FeedRankingAction, FeedRankingObservation, FeedRan
             Dictionary representation suitable for JSON encoding.
         """
         return {
-            "post_index": action.post_index,
+            "post_id": action.post_id,
         }
 
     def _parse_result(self, payload: Dict[str, Any]) -> StepResult[FeedRankingObservation]:
@@ -58,14 +58,15 @@ class SocialFeedEnv(EnvClient[FeedRankingAction, FeedRankingObservation, FeedRan
         """
         obs_data = payload.get("observation", {})
         observation = FeedRankingObservation(
-            user_interests=obs_data.get("user_interests", []),
-            user_context=obs_data.get("user_context", {}),
-            candidate_posts=obs_data.get("candidate_posts", []),
-            session_progress=obs_data.get("session_progress", 0.0),
-            engagement_history=obs_data.get("engagement_history", []),
-            done=obs_data.get("done", False),
+            feed=obs_data.get("feed", []),
+            candidate_pool=obs_data.get("candidate_pool", []),
+            user_interest_vector=obs_data.get("user_interest_vector", {}),
+            step=obs_data.get("step", 0),
+            max_steps=obs_data.get("max_steps", 50),
             reward=obs_data.get("reward", 0.0),
-            metadata=obs_data.get("metadata", {}),
+            cumulative_reward=obs_data.get("cumulative_reward", 0.0),
+            done=obs_data.get("done", False),
+            info=obs_data.get("info", {}),
         )
         
         return StepResult(
