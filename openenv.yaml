@@ -1,0 +1,7 @@
+name: social_media_env
+version: "1.0.0"
+entry_point: "social_media_env.server.app:app"
+description: "Social Media Feed Ranking Environment for OpenEnv"
+tasks:
+  - id: "engagement_optimization"
+    weight: 1.0
