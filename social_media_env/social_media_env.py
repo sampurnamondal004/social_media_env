@@ -40,32 +40,26 @@ class FeedRankingEnvironment(Environment):
         feed_slots: int = 10,
         pool_size: int = 30,
         max_steps: int = 50,
-        user_profile: Optional[Dict[str, float]] = None,
-        seed: Optional[int] = None,
-        base_url: Optional[str] = None,
+        user_profile: dict[str, float] | None = None,
+        seed: int | None = None,
+        base_url: str | None = None,  
         **kwargs
     ):
-        super().__init__(**kwargs)
-        actual_url = base_url or os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
-        self.client = EnvClient(base_url=actual_url)
-        # 1. Configuration & Randomness
-        self._feed_slots = feed_slots
-        self._pool_size = pool_size
-        self._max_steps = max_steps
+        # Determine the URL before initializing the client
+        # Use the passed argument, OR the environment variable, OR a fallback
+        self.api_base_url = base_url or os.getenv("API_BASE_URL", "https://api.openai.com/v1")
+        
+        # CRITICAL: Pass 'self.api_base_url', NOT the 'base_url' argument
+        self.client = EnvClient(base_url=self.api_base_url)
+
+        self._feed_slots  = feed_slots
+        self._pool_size   = pool_size
+        self._max_steps   = max_steps
         self._user_profile = user_profile
         self._rng = random.Random(seed)
-        
-        # 2. Logic Components
         self._rubric = reward_.FeedRankingRubric()
-        
-        # 3. Client Initialization (Crucial for avoiding TypeErrors)
-        self.base_url = base_url or os.getenv("API_BASE_URL", "https://api.openai.com/v1")
-        self.client = EnvClient(base_url=self.base_url)
-        
-        # 4. State Management
-        self._state: Optional[FeedRankingState] = None
+        self._state: FeedRankingState | None = None
         self.reset()
-
     # --- Public API ---
 
     def reset(self) -> FeedRankingObservation:

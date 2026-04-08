@@ -2,13 +2,13 @@
 import os
 from openenv.core.env_server import create_app
 from ..models import FeedRankingAction, FeedRankingObservation
-from .. import FeedRankingEnvironment
+from ..social_media_env import FeedRankingEnvironment
 
-API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+#API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 
-
+HF_API_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
 def env_factory():
-    return FeedRankingEnvironment(base_url=API_BASE_URL)
+    return FeedRankingEnvironment(base_url=HF_API_URL)
 
 
 app = create_app(
