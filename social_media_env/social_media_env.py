@@ -46,7 +46,8 @@ class FeedRankingEnvironment(Environment):
         **kwargs
     ):
         super().__init__(**kwargs)
-        
+        actual_url = base_url or os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
+        self.client = EnvClient(base_url=actual_url)
         # 1. Configuration & Randomness
         self._feed_slots = feed_slots
         self._pool_size = pool_size
