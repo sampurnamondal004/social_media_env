@@ -34,7 +34,7 @@ async def main() -> None:
     rewards: List[float] = []
     steps_taken = 0
     success = False
-    final_score = 0.0  # ✅ initialize before try block
+    final_score = 0.0 
 
     log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
 
@@ -45,7 +45,7 @@ async def main() -> None:
             if obs.done:
                 break
 
-            # Pick first available post from candidate pool
+           
             if not obs.candidate_pool:
                 break
             post_id = obs.candidate_pool[0]["post_id"]
