@@ -1,8 +1,7 @@
 import asyncio
 import os
 from typing import List
-from openai import OpenAI
-from openenv.core.env_client import EnvClient
+from social_media_env.client import SocialFeedEnv
 from social_media_env.models import FeedRankingAction
 
 API_KEY = os.getenv("HF_TOKEN")
@@ -34,27 +33,29 @@ async def main() -> None:
     log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
 
     try:
-        env = EnvClient(ENV_URL)
-        obs = await env.reset()
+        async with SocialFeedEnv(base_url=ENV_URL) as env:
+            result = await env.reset()
+            obs = result.observation
 
-        for step in range(1, MAX_STEPS + 1):
-            if obs.done:
-                break
-            if not obs.candidate_pool:
-                break
+            for step in range(1, MAX_STEPS + 1):
+                if result.done:
+                    break
+                if not obs.candidate_pool:
+                    break
 
-            post_id = obs.candidate_pool[0]["post_id"]
-            obs = await env.step(FeedRankingAction(post_id=post_id))
+                post_id = obs.candidate_pool[0]["post_id"]
+                result = await env.step(FeedRankingAction(post_id=post_id))
+                obs = result.observation
 
-            reward = obs.reward or 0.0
-            rewards.append(reward)
-            steps_taken = step
+                reward = result.reward or 0.0
+                rewards.append(reward)
+                steps_taken = step
 
-            log_step(step=step, action=f"select({post_id})",
-                     reward=reward, done=obs.done, error=None)
+                log_step(step=step, action=f"select({post_id})",
+                         reward=reward, done=result.done, error=None)
 
-            if obs.done:
-                break
+                if result.done:
+                    break
 
         final_score = sum(rewards) / MAX_STEPS if MAX_STEPS > 0 else 0.0
         success = final_score > 0.5
