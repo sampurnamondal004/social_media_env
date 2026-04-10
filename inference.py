@@ -1,15 +1,15 @@
 import asyncio
 import os
 import json
-from openai import OpenAI
 from typing import List
+from openai import OpenAI
 from social_media_env.client import SocialFeedEnv
 from social_media_env.models import FeedRankingAction
 
-API_KEY = os.environ["API_KEY"] 
-API_BASE_URL = os.environ["API_BASE_URL"]
-MODEL_NAME = os.getenv("MODEL_NAME") or "gpt-4"
-ENV_URL = os.getenv("ENV_URL") or "https://sampurnamondal012-ocial-media-ranking-env.hf.space"
+API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN", "dummy")
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4")
+ENV_URL = os.environ.get("ENV_URL", "https://sampurnamondal012-ocial-media-ranking-env.hf.space")
 
 TASK_NAME = "feed-ranking"
 BENCHMARK = "social_media_env"
@@ -27,8 +27,7 @@ def log_end(success, steps, score, rewards):
     print(f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}", flush=True)
 
 def select_post_with_llm(client: OpenAI, obs) -> str:
-    """Use LLM to select the best post from candidate pool."""
-    candidates = obs.candidate_pool[:10]  
+    candidates = obs.candidate_pool[:10]
     interests = obs.user_interest_vector
 
     prompt = f"""You are a social media feed ranking agent.
@@ -38,10 +37,10 @@ User interests (topic -> weight): {json.dumps(interests)}
 Candidate posts:
 {json.dumps(candidates, indent=2)}
 
-Select the single best post_id to show the user next based on:
+Select the single best post_id to show next based on:
 - High relevance to user interests
 - High quality_score
-- Low age_hours (fresher is better)
+- Low age_hours (fresher is better)  
 - Avoid is_clickbait=true posts
 
 Reply with ONLY the post_id string, nothing else."""
@@ -54,12 +53,9 @@ Reply with ONLY the post_id string, nothing else."""
     )
 
     chosen = response.choices[0].message.content.strip().strip('"')
-
-    
     valid_ids = {p["post_id"] for p in obs.candidate_pool}
     if chosen not in valid_ids:
         chosen = obs.candidate_pool[0]["post_id"]
-
     return chosen
 
 async def main() -> None:
@@ -67,13 +63,13 @@ async def main() -> None:
     steps_taken = 0
     success = False
     final_score = 0.0
-    
-    llm = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 
+    llm = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
     log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
 
     try:
-        async with SocialFeedEnv(base_url=ENV_URL) as env:
+        
+        async with SocialFeedEnv(base_url=ENV_URL, mode="http") as env:
             result = await env.reset()
             obs = result.observation
 
@@ -101,7 +97,7 @@ async def main() -> None:
         success = final_score > 0.5
 
     except Exception as e:
-        print(f"[ERROR] {e}", flush=True)
+        print(f"[ERROR] {type(e).__name__}: {e}", flush=True)
         raise
 
     finally:
