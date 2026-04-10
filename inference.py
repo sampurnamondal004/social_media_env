@@ -2,12 +2,13 @@ import asyncio
 import os
 import json
 from typing import List, Dict
+from openai import OpenAI
 import httpx
 
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4")
-HF_TOKEN = os.environ.get("HF_TOKEN", "")  
-ENV_URL = os.environ.get("ENV_URL", "https://sampurnamondal012-ocial-media-ranking-env.hf.space")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4")
+HF_TOKEN = os.getenv("HF_TOKEN", "")
+ENV_URL = os.getenv("ENV_URL", "https://sampurnamondal012-ocial-media-ranking-env.hf.space")
 
 TASK_NAME = "feed-ranking"
 BENCHMARK = "social_media_env"
@@ -24,30 +25,23 @@ def log_end(success, steps, score, rewards):
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}", flush=True)
 
-def select_post_with_llm(candidate_pool: List[Dict], interests: Dict) -> str:
+def select_post_with_llm(client: OpenAI, candidate_pool: List[Dict], interests: Dict) -> str:
+    """Use OpenAI client with HF_TOKEN to select best post."""
     candidates = candidate_pool[:10]
     prompt = f"""You are a social media feed ranking agent.
-User interests: {json.dumps(interests)}
-Candidate posts: {json.dumps(candidates, indent=2)}
-Reply with ONLY the post_id of the best post. No explanation."""
+User interests (topic -> weight): {json.dumps(interests)}
+Candidate posts:
+{json.dumps(candidates, indent=2)}
+Reply with ONLY the post_id of the best post to show next. No explanation."""
 
-    base = API_BASE_URL.rstrip("/")
-    with httpx.Client(timeout=30.0) as client:
-        r = client.post(
-            f"{base}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {HF_TOKEN}", 
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": MODEL_NAME,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 50,
-                "temperature": 0.0,
-            },
-        )
-        r.raise_for_status()
-        chosen = r.json()["choices"][0]["message"]["content"].strip().strip('"')
+    
+    response = client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=50,
+        temperature=0.0,
+    )
+    chosen = response.choices[0].message.content.strip().strip('"')
 
     valid_ids = {p["post_id"] for p in candidate_pool}
     if chosen not in valid_ids:
@@ -59,6 +53,13 @@ async def main() -> None:
     steps_taken = 0
     success = False
     final_score = 0.0
+
+    
+    
+    client = OpenAI(
+        base_url=API_BASE_URL,
+        api_key=HF_TOKEN,
+    )
 
     log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
 
@@ -76,7 +77,7 @@ async def main() -> None:
                     break
 
                 interests = obs.get("user_interest_vector", {})
-                post_id = select_post_with_llm(candidate_pool, interests)
+                post_id = select_post_with_llm(client, candidate_pool, interests)
 
                 r = await http.post("/step", json={"post_id": post_id})
                 r.raise_for_status()
