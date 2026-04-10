@@ -1,12 +1,13 @@
 import asyncio
 import os
 import json
-from typing import List, Dict, Any
+from typing import List, Dict
 from openai import OpenAI
 import httpx
 
-API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN", "dummy")
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
+
+API_KEY = os.environ["API_KEY"]
+API_BASE_URL = os.environ["API_BASE_URL"]
 MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4")
 ENV_URL = os.environ.get("ENV_URL", "https://sampurnamondal012-ocial-media-ranking-env.hf.space")
 
@@ -60,12 +61,16 @@ async def main() -> None:
     success = False
     final_score = 0.0
 
-    llm = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+    
+    llm = OpenAI(
+        base_url=API_BASE_URL,
+        api_key=API_KEY,
+    )
+
     log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
 
     try:
         async with httpx.AsyncClient(base_url=ENV_URL, timeout=30.0) as http:
-            # Reset
             r = await http.post("/reset")
             r.raise_for_status()
             obs = r.json()
