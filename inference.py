@@ -1,10 +1,9 @@
 import asyncio
 import os
 import json
-from typing import List
+from typing import List, Dict, Any
 from openai import OpenAI
-from social_media_env.client import SocialFeedEnv
-from social_media_env.models import FeedRankingAction
+import httpx
 
 API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN", "dummy")
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
@@ -26,10 +25,8 @@ def log_end(success, steps, score, rewards):
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}", flush=True)
 
-def select_post_with_llm(client: OpenAI, obs) -> str:
-    candidates = obs.candidate_pool[:10]
-    interests = obs.user_interest_vector
-
+def select_post_with_llm(client: OpenAI, candidate_pool: List[Dict], interests: Dict) -> str:
+    candidates = candidate_pool[:10]
     prompt = f"""You are a social media feed ranking agent.
 
 User interests (topic -> weight): {json.dumps(interests)}
@@ -40,7 +37,7 @@ Candidate posts:
 Select the single best post_id to show next based on:
 - High relevance to user interests
 - High quality_score
-- Low age_hours (fresher is better)  
+- Low age_hours (fresher is better)
 - Avoid is_clickbait=true posts
 
 Reply with ONLY the post_id string, nothing else."""
@@ -51,11 +48,10 @@ Reply with ONLY the post_id string, nothing else."""
         max_tokens=50,
         temperature=0.0,
     )
-
     chosen = response.choices[0].message.content.strip().strip('"')
-    valid_ids = {p["post_id"] for p in obs.candidate_pool}
+    valid_ids = {p["post_id"] for p in candidate_pool}
     if chosen not in valid_ids:
-        chosen = obs.candidate_pool[0]["post_id"]
+        chosen = candidate_pool[0]["post_id"]
     return chosen
 
 async def main() -> None:
@@ -68,29 +64,34 @@ async def main() -> None:
     log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
 
     try:
-        
-        async with SocialFeedEnv(base_url=ENV_URL, mode="http") as env:
-            result = await env.reset()
-            obs = result.observation
+        async with httpx.AsyncClient(base_url=ENV_URL, timeout=30.0) as http:
+            # Reset
+            r = await http.post("/reset")
+            r.raise_for_status()
+            obs = r.json()
 
             for step in range(1, MAX_STEPS + 1):
-                if result.done:
+                if obs.get("done", False):
                     break
-                if not obs.candidate_pool:
+                candidate_pool = obs.get("candidate_pool", [])
+                if not candidate_pool:
                     break
 
-                post_id = select_post_with_llm(llm, obs)
-                result = await env.step(FeedRankingAction(post_id=post_id))
-                obs = result.observation
+                interests = obs.get("user_interest_vector", {})
+                post_id = select_post_with_llm(llm, candidate_pool, interests)
 
-                reward = result.reward or 0.0
+                r = await http.post("/step", json={"post_id": post_id})
+                r.raise_for_status()
+                obs = r.json()
+
+                reward = float(obs.get("reward", 0.0))
                 rewards.append(reward)
                 steps_taken = step
 
                 log_step(step=step, action=f"select({post_id})",
-                         reward=reward, done=result.done, error=None)
+                         reward=reward, done=obs.get("done", False), error=None)
 
-                if result.done:
+                if obs.get("done", False):
                     break
 
         final_score = sum(rewards) / MAX_STEPS if MAX_STEPS > 0 else 0.0
