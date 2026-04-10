@@ -4,9 +4,9 @@ import json
 from typing import List, Dict
 import httpx
 
-API_KEY = os.environ["API_KEY"]
-API_BASE_URL = os.environ["API_BASE_URL"]
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4")
+HF_TOKEN = os.environ.get("HF_TOKEN", "")  
 ENV_URL = os.environ.get("ENV_URL", "https://sampurnamondal012-ocial-media-ranking-env.hf.space")
 
 TASK_NAME = "feed-ranking"
@@ -25,30 +25,26 @@ def log_end(success, steps, score, rewards):
     print(f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}", flush=True)
 
 def select_post_with_llm(candidate_pool: List[Dict], interests: Dict) -> str:
-    """Call LLM via raw httpx to guarantee API_BASE_URL and API_KEY are used."""
     candidates = candidate_pool[:10]
     prompt = f"""You are a social media feed ranking agent.
 User interests: {json.dumps(interests)}
 Candidate posts: {json.dumps(candidates, indent=2)}
 Reply with ONLY the post_id of the best post. No explanation."""
 
-    payload = {
-        "model": MODEL_NAME,
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 50,
-        "temperature": 0.0,
-    }
-
-    
     base = API_BASE_URL.rstrip("/")
     with httpx.Client(timeout=30.0) as client:
         r = client.post(
             f"{base}/chat/completions",
             headers={
-                "Authorization": f"Bearer {API_KEY}",
+                "Authorization": f"Bearer {HF_TOKEN}", 
                 "Content-Type": "application/json",
             },
-            json=payload,
+            json={
+                "model": MODEL_NAME,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 50,
+                "temperature": 0.0,
+            },
         )
         r.raise_for_status()
         chosen = r.json()["choices"][0]["message"]["content"].strip().strip('"')
@@ -80,8 +76,6 @@ async def main() -> None:
                     break
 
                 interests = obs.get("user_interest_vector", {})
-
-                # ✅ Direct httpx call — no OpenAI client wrapper that might reroute
                 post_id = select_post_with_llm(candidate_pool, interests)
 
                 r = await http.post("/step", json={"post_id": post_id})
