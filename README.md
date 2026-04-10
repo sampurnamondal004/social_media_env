@@ -1,3 +1,12 @@
+---
+title: Social Media Env
+emoji: 📱
+colorFrom: blue
+colorTo: purple
+sdk: docker
+pinned: false
+---
+
 # Social Media Feed Ranking RL Environment
 
 A **FastAPI-based reinforcement learning environment** for simulating and optimising social media feed ranking. Built on the [OpenEnv](https://github.com/openenv) framework, this project models the feed ranking problem as a Markov Decision Process — where an RL agent learns to order content to maximise user engagement and relevance scores.
