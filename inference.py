@@ -2,9 +2,7 @@ import asyncio
 import os
 import json
 from typing import List, Dict
-from openai import OpenAI
 import httpx
-
 
 API_KEY = os.environ["API_KEY"]
 API_BASE_URL = os.environ["API_BASE_URL"]
@@ -26,30 +24,35 @@ def log_end(success, steps, score, rewards):
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}", flush=True)
 
-def select_post_with_llm(client: OpenAI, candidate_pool: List[Dict], interests: Dict) -> str:
+def select_post_with_llm(candidate_pool: List[Dict], interests: Dict) -> str:
+    """Call LLM via raw httpx to guarantee API_BASE_URL and API_KEY are used."""
     candidates = candidate_pool[:10]
     prompt = f"""You are a social media feed ranking agent.
+User interests: {json.dumps(interests)}
+Candidate posts: {json.dumps(candidates, indent=2)}
+Reply with ONLY the post_id of the best post. No explanation."""
 
-User interests (topic -> weight): {json.dumps(interests)}
+    payload = {
+        "model": MODEL_NAME,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 50,
+        "temperature": 0.0,
+    }
 
-Candidate posts:
-{json.dumps(candidates, indent=2)}
+    
+    base = API_BASE_URL.rstrip("/")
+    with httpx.Client(timeout=30.0) as client:
+        r = client.post(
+            f"{base}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
+        r.raise_for_status()
+        chosen = r.json()["choices"][0]["message"]["content"].strip().strip('"')
 
-Select the single best post_id to show next based on:
-- High relevance to user interests
-- High quality_score
-- Low age_hours (fresher is better)
-- Avoid is_clickbait=true posts
-
-Reply with ONLY the post_id string, nothing else."""
-
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=50,
-        temperature=0.0,
-    )
-    chosen = response.choices[0].message.content.strip().strip('"')
     valid_ids = {p["post_id"] for p in candidate_pool}
     if chosen not in valid_ids:
         chosen = candidate_pool[0]["post_id"]
@@ -60,12 +63,6 @@ async def main() -> None:
     steps_taken = 0
     success = False
     final_score = 0.0
-
-    
-    llm = OpenAI(
-        base_url=API_BASE_URL,
-        api_key=API_KEY,
-    )
 
     log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
 
@@ -83,7 +80,9 @@ async def main() -> None:
                     break
 
                 interests = obs.get("user_interest_vector", {})
-                post_id = select_post_with_llm(llm, candidate_pool, interests)
+
+                # ✅ Direct httpx call — no OpenAI client wrapper that might reroute
+                post_id = select_post_with_llm(candidate_pool, interests)
 
                 r = await http.post("/step", json={"post_id": post_id})
                 r.raise_for_status()
