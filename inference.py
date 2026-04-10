@@ -6,7 +6,7 @@ from openai import OpenAI
 import httpx
 
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4")
+MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.3-70B-Instruct")
 HF_TOKEN = os.getenv("HF_TOKEN", "")
 ENV_URL = os.getenv("ENV_URL", "https://sampurnamondal012-ocial-media-ranking-env.hf.space")
 
@@ -34,7 +34,6 @@ Candidate posts:
 {json.dumps(candidates, indent=2)}
 Reply with ONLY the post_id of the best post to show next. No explanation."""
 
-    
     response = client.chat.completions.create(
         model=MODEL_NAME,
         messages=[{"role": "user", "content": prompt}],
@@ -54,8 +53,6 @@ async def main() -> None:
     success = False
     final_score = 0.0
 
-    
-    
     client = OpenAI(
         base_url=API_BASE_URL,
         api_key=HF_TOKEN,
