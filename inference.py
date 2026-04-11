@@ -1,16 +1,22 @@
+"""
+inference.py - Social Media Feed Ranking Environment
+"""
+
 import asyncio
 import os
 import json
 import textwrap
-from typing import List, Dict, Optional
-from openai import OpenAI
-from social_media_env.client import SocialFeedEnv
-from social_media_env import FeedRankingAction, FeedRankingEnvironment
+from typing import List, Optional
 
+from openai import OpenAI
+
+from social_media_env.client import SocialFeedEnv
+from social_media_env.models import FeedRankingAction
+
+# Environment Variables
 API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
 MODEL_NAME = os.getenv("MODEL_NAME") or "meta-llama/Llama-3.3-70B-Instruct"
-IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME", "registry.hf.space/sampurnamondal012-ocial-media-ranking-env:latest")
 ENV_URL = os.getenv("ENV_URL", "https://sampurnamondal012-ocial-media-ranking-env.hf.space")
 
 TASK_NAME = os.getenv("SOCIAL_MEDIA_ENV_TASK", "engagement_optimization")
@@ -19,15 +25,14 @@ BENCHMARK = os.getenv("SOCIAL_MEDIA_ENV_BENCHMARK", "social_media_env")
 MAX_STEPS = 5
 TEMPERATURE = 0.0
 MAX_TOKENS = 50
-SUCCESS_SCORE_THRESHOLD = 0.1  # normalized score in [0, 1]
+SUCCESS_SCORE_THRESHOLD = 0.1
 
-# Max possible reward per step is 1.0 (reward bounded to [-1, 1])
 _MAX_REWARD_PER_STEP = 1.0
 MAX_TOTAL_REWARD = MAX_STEPS * _MAX_REWARD_PER_STEP
 
 SYSTEM_PROMPT = textwrap.dedent("""
     You are a social media feed ranking agent.
-    Your goal is to select the best post from the candidate pool to maximize user engagement.
+    Select the best post from the candidate pool to maximize user engagement.
     Consider the user's interest vector and prefer:
     - Posts with high relevance to user interests
     - Posts with high quality_score
@@ -45,6 +50,7 @@ def log_step(step: int, action: str, reward: float, done: bool, error: Optional[
     error_val = error if error else "null"
     done_val = str(done).lower()
     print(f"[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}", flush=True)
+
 
 
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
@@ -92,7 +98,9 @@ def get_model_message(client: OpenAI, step: int, obs, last_reward: float, histor
 
 async def main() -> None:
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
-    env = await SocialFeedEnv.from_docker_image(IMAGE_NAME)
+
+    
+    env = SocialFeedEnv(base_url=ENV_URL)
 
     history: List[str] = []
     rewards: List[float] = []
@@ -103,7 +111,7 @@ async def main() -> None:
     log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
 
     try:
-        result = await env.reset()  # OpenENV.reset()
+        result = await env.reset()
         last_obs = result.observation
         last_reward = 0.0
 
@@ -132,7 +140,7 @@ async def main() -> None:
                 break
 
         score = sum(rewards) / MAX_TOTAL_REWARD if MAX_TOTAL_REWARD > 0 else 0.0
-        score = min(max(score, 0.0), 1.0)  # clamp to [0, 1]
+        score = min(max(score, 0.0), 1.0)
         success = score >= SUCCESS_SCORE_THRESHOLD
 
     finally:
