@@ -4,7 +4,7 @@ entry_point: "social_media_env.server.app:app"
 description: "Social Media Feed Ranking Environment for OpenEnv"
 env_vars:
   ENV_URL: "https://sampurnamondal012-ocial-media-ranking-env.hf.space"
-  MODEL_NAME: "gpt-4"
+  MODEL_NAME: "meta-llama/Llama-3.3-70B-Instruct"
 tasks:
   - id: "engagement_optimization"
     weight: 1.0

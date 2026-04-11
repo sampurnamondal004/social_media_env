@@ -1,7 +1,7 @@
 import asyncio
 import os
-import json
-from typing import List, Dict
+import json                          
+from typing import List, Dict       
 from openai import OpenAI
 import httpx
 
@@ -26,7 +26,6 @@ def log_end(success, steps, score, rewards):
     print(f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}", flush=True)
 
 def select_post_with_llm(client: OpenAI, candidate_pool: List[Dict], interests: Dict) -> str:
-    """Use OpenAI client with HF_TOKEN to select best post."""
     candidates = candidate_pool[:10]
     prompt = f"""You are a social media feed ranking agent.
 User interests (topic -> weight): {json.dumps(interests)}
@@ -41,7 +40,6 @@ Reply with ONLY the post_id of the best post to show next. No explanation."""
         temperature=0.0,
     )
     chosen = response.choices[0].message.content.strip().strip('"')
-
     valid_ids = {p["post_id"] for p in candidate_pool}
     if chosen not in valid_ids:
         chosen = candidate_pool[0]["post_id"]
@@ -53,11 +51,7 @@ async def main() -> None:
     success = False
     final_score = 0.0
 
-    client = OpenAI(
-        base_url=API_BASE_URL,
-        api_key=HF_TOKEN,
-    )
-
+    client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
     log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
 
     try:
