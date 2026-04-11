@@ -5,10 +5,11 @@ from typing import List, Dict, Optional
 from openai import OpenAI
 import httpx
 
-API_KEY = os.environ["API_KEY"]
-API_BASE_URL = os.environ["API_BASE_URL"]
-MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.3-70B-Instruct")
-ENV_URL = os.getenv("ENV_URL", "https://sampurnamondal012-ocial-media-ranking-env.hf.space")
+# Try both variable names the grader might inject
+API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN") or ""
+API_BASE_URL = os.environ.get("API_BASE_URL") or "https://router.huggingface.co/v1"
+MODEL_NAME = os.environ.get("MODEL_NAME") or "meta-llama/Llama-3.3-70B-Instruct"
+ENV_URL = os.environ.get("ENV_URL") or "https://sampurnamondal012-ocial-media-ranking-env.hf.space"
 
 TASK_NAME = "feed-ranking"
 BENCHMARK = "social_media_env"
@@ -34,7 +35,6 @@ Candidate posts:
 {json.dumps(candidates, indent=2)}
 Reply with ONLY the post_id of the best post to show next. No explanation."""
 
-    
     response = client.chat.completions.create(
         model=MODEL_NAME,
         messages=[{"role": "user", "content": prompt}],
@@ -53,6 +53,7 @@ async def main() -> None:
     print(f"[DEBUG] API_BASE_URL={API_BASE_URL}", flush=True)
     print(f"[DEBUG] MODEL_NAME={MODEL_NAME}", flush=True)
     print(f"[DEBUG] API_KEY_SET={bool(API_KEY)}", flush=True)
+    print(f"[DEBUG] ENV_URL={ENV_URL}", flush=True)
 
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 
@@ -77,7 +78,6 @@ async def main() -> None:
                 break
 
             interests = obs.get("user_interest_vector", {})
-
             post_id = select_post_with_llm(client, candidate_pool, interests)
 
             r = await http.post("/step", json={"post_id": post_id})
