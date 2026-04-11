@@ -1,61 +1,29 @@
-"""
-Social Media Feed Ranking Environment Client.
-This module provides the client for connecting to a Social Media Feed Ranking 
-Environment server via WebSocket for persistent sessions.
-"""
+import os
+from openai import OpenAI
 from __future__ import annotations
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from openenv.core.client_types import StepResult
 from openenv.core.env_client import EnvClient
 from social_media_env.models import FeedRankingAction, FeedRankingObservation, FeedRankingState
 
-
 class SocialFeedEnv(EnvClient[FeedRankingAction, FeedRankingObservation, FeedRankingState]):
     """
     Client for Social Media Feed Ranking Environment.
-    
-    This client maintains a persistent WebSocket connection to the environment
-    server, enabling efficient multi-step interactions with lower latency.
-    
-    The environment simulates a social media feed ranking system where an agent
-    learns to select posts that maximize user engagement by understanding user
-    preferences and post characteristics.
-    
-    Example:
-        >>> with SocialFeedEnv(base_url="http://localhost:8000") as client:
-        ...     result = client.reset()
-        ...     print(result.observation.user_interests)
-        ...     print(result.observation.candidate_posts)
-        ...
-        ...     # Agent selects post index 3 from candidates
-        ...     result = client.step(FeedAction(post_index=3))
-        ...     print(result.reward, result.done)
+    Optimized to work with the OpenEnv Proxy.
     """
 
+    def __init__(self, base_url: Optional[str] = None, api_key: Optional[str] = None, **kwargs):
+       
+        target_url = os.getenv("API_BASE_URL", base_url)
+        target_key = os.getenv("HF_TOKEN", api_key)
+        
+        
+        super().__init__(base_url=target_url, api_key=target_key, **kwargs)
+
     def _step_payload(self, action: FeedRankingAction) -> Dict[str, Any]:
-        """
-        Convert FeedAction to JSON payload for step request.
-        
-        Args:
-            action: FeedAction instance with selected post index.
-        
-        Returns:
-            Dictionary representation suitable for JSON encoding.
-        """
-        return {
-            "post_id": action.post_id,
-        }
+        return {"post_id": action.post_id}
 
     def _parse_result(self, payload: Dict[str, Any]) -> StepResult[FeedRankingObservation]:
-        """
-        Parse server response into StepResult[FeedObservation].
-        
-        Args:
-            payload: JSON response from server.
-        
-        Returns:
-            StepResult with FeedObservation.
-        """
         obs_data = payload.get("observation", {})
         observation = FeedRankingObservation(
             feed=obs_data.get("feed", []),
@@ -76,20 +44,12 @@ class SocialFeedEnv(EnvClient[FeedRankingAction, FeedRankingObservation, FeedRan
         )
 
     def _parse_state(self, payload: Dict[str, Any]) -> FeedRankingState:
-        """
-        Parse server response into FeedState object.
         
-        Args:
-            payload: JSON response from /state endpoint.
-        
-        Returns:
-            FeedState object with environment state information.
-        """
         return FeedRankingState(
             episode_id=payload.get("episode_id", ""),
-            user_profile=payload.get("user_profile", {}),
-            shown_post_ids=payload.get("shown_post_ids", []),
-            total_engagement=payload.get("total_engagement", 0.0),
+            user_interest_vector=payload.get("user_interest_vector", {}), 
+            placed_ids=set(payload.get("placed_ids", [])),             
+            cumulative_reward=payload.get("cumulative_reward", 0.0),   
             step_count=payload.get("step_count", 0),
-            avg_engagement=payload.get("avg_engagement", 0.0),
+            candidate_pool=payload.get("candidate_pool", []),
         )
