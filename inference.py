@@ -1,6 +1,7 @@
 import asyncio
 import os
 import json
+import textwrap
 from typing import List, Dict, Optional
 from openai import OpenAI
 from social_media_env.client import SocialFeedEnv
