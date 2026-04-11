@@ -3,60 +3,97 @@ import os
 import json
 from typing import List, Dict, Optional
 from openai import OpenAI
-import httpx
+from social_media_env.client import SocialFeedEnv
+from social_media_env import FeedRankingAction, FeedRankingEnvironment
 
-# Try both variable names the grader might inject
-API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN") or ""
-API_BASE_URL = os.environ.get("API_BASE_URL") or "https://router.huggingface.co/v1"
-MODEL_NAME = os.environ.get("MODEL_NAME") or "meta-llama/Llama-3.3-70B-Instruct"
-ENV_URL = os.environ.get("ENV_URL") or "https://sampurnamondal012-ocial-media-ranking-env.hf.space"
+API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
+API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
+MODEL_NAME = os.getenv("MODEL_NAME") or "meta-llama/Llama-3.3-70B-Instruct"
+IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME", "registry.hf.space/sampurnamondal012-ocial-media-ranking-env:latest")
+ENV_URL = os.getenv("ENV_URL", "https://sampurnamondal012-ocial-media-ranking-env.hf.space")
 
-TASK_NAME = "feed-ranking"
-BENCHMARK = "social_media_env"
+TASK_NAME = os.getenv("SOCIAL_MEDIA_ENV_TASK", "engagement_optimization")
+BENCHMARK = os.getenv("SOCIAL_MEDIA_ENV_BENCHMARK", "social_media_env")
+
 MAX_STEPS = 5
-SUCCESS_SCORE_THRESHOLD = 0.1
+TEMPERATURE = 0.0
+MAX_TOKENS = 50
+SUCCESS_SCORE_THRESHOLD = 0.1  # normalized score in [0, 1]
+
+# Max possible reward per step is 1.0 (reward bounded to [-1, 1])
+_MAX_REWARD_PER_STEP = 1.0
+MAX_TOTAL_REWARD = MAX_STEPS * _MAX_REWARD_PER_STEP
+
+SYSTEM_PROMPT = textwrap.dedent("""
+    You are a social media feed ranking agent.
+    Your goal is to select the best post from the candidate pool to maximize user engagement.
+    Consider the user's interest vector and prefer:
+    - Posts with high relevance to user interests
+    - Posts with high quality_score
+    - Fresh posts with low age_hours
+    - Avoid posts where is_clickbait=true
+    Reply with ONLY the post_id string. No explanation, no quotes.
+""").strip()
+
 
 def log_start(task: str, env: str, model: str) -> None:
     print(f"[START] task={task} env={env} model={model}", flush=True)
 
+
 def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
     error_val = error if error else "null"
-    print(f"[STEP] step={step} action={action} reward={reward:.2f} done={str(done).lower()} error={error_val}", flush=True)
+    done_val = str(done).lower()
+    print(f"[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}", flush=True)
+
 
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
 
-def select_post_with_llm(client: OpenAI, candidate_pool: List[Dict], interests: Dict) -> str:
-    candidates = candidate_pool[:10]
-    prompt = f"""You are a social media feed ranking agent.
-User interests (topic -> weight): {json.dumps(interests)}
-Candidate posts:
-{json.dumps(candidates, indent=2)}
-Reply with ONLY the post_id of the best post to show next. No explanation."""
 
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=50,
-        temperature=0.0,
-    )
-    chosen = response.choices[0].message.content.strip().strip('"')
-    print(f"[DEBUG] LLM chose: {chosen}", flush=True)
+def build_user_prompt(step: int, obs, last_reward: float, history: List[str]) -> str:
+    candidates = obs.candidate_pool[:10] if hasattr(obs, "candidate_pool") else []
+    interests = obs.user_interest_vector if hasattr(obs, "user_interest_vector") else {}
+    history_block = "\n".join(history[-4:]) if history else "None"
+    return textwrap.dedent(f"""
+        Step: {step}
+        User interests (topic -> weight): {json.dumps(interests)}
+        Candidate posts:
+        {json.dumps(candidates, indent=2)}
+        Last reward: {last_reward:.2f}
+        Previous steps:
+        {history_block}
+        Reply with ONLY the post_id of the best post.
+    """).strip()
 
-    valid_ids = {p["post_id"] for p in candidate_pool}
-    if chosen not in valid_ids:
-        chosen = candidate_pool[0]["post_id"]
-    return chosen
+
+def get_model_message(client: OpenAI, step: int, obs, last_reward: float, history: List[str]) -> str:
+    candidates = obs.candidate_pool[:10] if hasattr(obs, "candidate_pool") else []
+    user_prompt = build_user_prompt(step, obs, last_reward, history)
+    try:
+        completion = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=TEMPERATURE,
+            max_tokens=MAX_TOKENS,
+            stream=False,
+        )
+        text = (completion.choices[0].message.content or "").strip().strip('"')
+        valid_ids = {p["post_id"] for p in candidates}
+        return text if text in valid_ids else (candidates[0]["post_id"] if candidates else "")
+    except Exception as exc:
+        print(f"[DEBUG] Model request failed: {exc}", flush=True)
+        return candidates[0]["post_id"] if candidates else ""
+
 
 async def main() -> None:
-    print(f"[DEBUG] API_BASE_URL={API_BASE_URL}", flush=True)
-    print(f"[DEBUG] MODEL_NAME={MODEL_NAME}", flush=True)
-    print(f"[DEBUG] API_KEY_SET={bool(API_KEY)}", flush=True)
-    print(f"[DEBUG] ENV_URL={ENV_URL}", flush=True)
-
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+    env = await SocialFeedEnv.from_docker_image(IMAGE_NAME)
 
+    history: List[str] = []
     rewards: List[float] = []
     steps_taken = 0
     score = 0.0
@@ -64,46 +101,46 @@ async def main() -> None:
 
     log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
 
-    http = httpx.AsyncClient(base_url=ENV_URL, timeout=30.0)
     try:
-        r = await http.post("/reset")
-        r.raise_for_status()
-        obs = r.json()
+        result = await env.reset()  # OpenENV.reset()
+        last_obs = result.observation
+        last_reward = 0.0
 
         for step in range(1, MAX_STEPS + 1):
-            if obs.get("done", False):
-                break
-            candidate_pool = obs.get("candidate_pool", [])
-            if not candidate_pool:
+            if result.done:
                 break
 
-            interests = obs.get("user_interest_vector", {})
-            post_id = select_post_with_llm(client, candidate_pool, interests)
+            post_id = get_model_message(client, step, last_obs, last_reward, history)
 
-            r = await http.post("/step", json={"post_id": post_id})
-            r.raise_for_status()
-            obs = r.json()
+            result = await env.step(FeedRankingAction(post_id=post_id))
+            obs = result.observation
+            reward = result.reward or 0.0
+            done = result.done
+            error = None
 
-            reward = float(obs.get("reward", 0.0))
             rewards.append(reward)
             steps_taken = step
+            last_obs = obs
+            last_reward = reward
 
-            log_step(step=step, action=f"select({post_id})",
-                     reward=reward, done=obs.get("done", False), error=None)
+            log_step(step=step, action=f"select({post_id})", reward=reward, done=done, error=error)
 
-            if obs.get("done", False):
+            history.append(f"Step {step}: {post_id!r} -> reward {reward:+.2f}")
+
+            if done:
                 break
 
-        score = sum(rewards) / MAX_STEPS if MAX_STEPS > 0 else 0.0
-        score = min(max(score, 0.0), 1.0)
+        score = sum(rewards) / MAX_TOTAL_REWARD if MAX_TOTAL_REWARD > 0 else 0.0
+        score = min(max(score, 0.0), 1.0)  # clamp to [0, 1]
         success = score >= SUCCESS_SCORE_THRESHOLD
 
     finally:
         try:
-            await http.aclose()
-        except Exception:
-            pass
+            await env.close()
+        except Exception as e:
+            print(f"[DEBUG] env.close() error (container cleanup): {e}", flush=True)
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
