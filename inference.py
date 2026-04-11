@@ -5,11 +5,11 @@ from typing import List, Dict, Optional
 from openai import OpenAI
 import httpx
 
-
-API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
-API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
-MODEL_NAME = os.getenv("MODEL_NAME") or "meta-llama/Llama-3.3-70B-Instruct"
-ENV_URL = os.getenv("ENV_URL") or "https://sampurnamondal012-ocial-media-ranking-env.hf.space"
+# ✅ Exact names grader injects — no fallbacks so we fail loud if missing
+API_KEY = os.environ["API_KEY"]          # grader injects this — NOT HF_TOKEN
+API_BASE_URL = os.environ["API_BASE_URL"] # grader injects this — their LiteLLM proxy
+MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.3-70B-Instruct")
+ENV_URL = os.getenv("ENV_URL", "https://sampurnamondal012-ocial-media-ranking-env.hf.space")
 
 TASK_NAME = "feed-ranking"
 BENCHMARK = "social_media_env"
@@ -21,8 +21,7 @@ def log_start(task: str, env: str, model: str) -> None:
 
 def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
     error_val = error if error else "null"
-    done_val = str(done).lower()
-    print(f"[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}", flush=True)
+    print(f"[STEP] step={step} action={action} reward={reward:.2f} done={str(done).lower()} error={error_val}", flush=True)
 
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
@@ -44,8 +43,9 @@ Reply with ONLY the post_id of the best post to show next. No explanation."""
             temperature=0.0,
         )
         chosen = response.choices[0].message.content.strip().strip('"')
+        print(f"[DEBUG] LLM chose: {chosen}", flush=True)
     except Exception as exc:
-        print(f"[DEBUG] Model request failed: {exc}", flush=True)
+        print(f"[DEBUG] LLM call failed: {exc}", flush=True)
         chosen = ""
 
     valid_ids = {p["post_id"] for p in candidate_pool}
@@ -54,7 +54,7 @@ Reply with ONLY the post_id of the best post to show next. No explanation."""
     return chosen
 
 async def main() -> None:
-    
+    # ✅ OpenAI client using grader-injected API_KEY and API_BASE_URL
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 
     rewards: List[float] = []
@@ -95,15 +95,14 @@ async def main() -> None:
                 break
 
         score = sum(rewards) / MAX_STEPS if MAX_STEPS > 0 else 0.0
-        score = min(max(score, 0.0), 1.0)  # clamp to [0, 1]
+        score = min(max(score, 0.0), 1.0)
         success = score >= SUCCESS_SCORE_THRESHOLD
 
     finally:
-       
         try:
             await http.aclose()
         except Exception as e:
-            print(f"[DEBUG] http.aclose() error: {e}", flush=True)
+            print(f"[DEBUG] close error: {e}", flush=True)
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
 if __name__ == "__main__":
