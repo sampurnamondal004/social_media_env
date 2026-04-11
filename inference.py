@@ -5,9 +5,8 @@ from typing import List, Dict, Optional
 from openai import OpenAI
 import httpx
 
-# ✅ Exact names grader injects — no fallbacks so we fail loud if missing
-API_KEY = os.environ["API_KEY"]          # grader injects this — NOT HF_TOKEN
-API_BASE_URL = os.environ["API_BASE_URL"] # grader injects this — their LiteLLM proxy
+API_KEY = os.environ["API_KEY"]
+API_BASE_URL = os.environ["API_BASE_URL"]
 MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.3-70B-Instruct")
 ENV_URL = os.getenv("ENV_URL", "https://sampurnamondal012-ocial-media-ranking-env.hf.space")
 
@@ -35,18 +34,15 @@ Candidate posts:
 {json.dumps(candidates, indent=2)}
 Reply with ONLY the post_id of the best post to show next. No explanation."""
 
-    try:
-        response = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=50,
-            temperature=0.0,
-        )
-        chosen = response.choices[0].message.content.strip().strip('"')
-        print(f"[DEBUG] LLM chose: {chosen}", flush=True)
-    except Exception as exc:
-        print(f"[DEBUG] LLM call failed: {exc}", flush=True)
-        chosen = ""
+    
+    response = client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=50,
+        temperature=0.0,
+    )
+    chosen = response.choices[0].message.content.strip().strip('"')
+    print(f"[DEBUG] LLM chose: {chosen}", flush=True)
 
     valid_ids = {p["post_id"] for p in candidate_pool}
     if chosen not in valid_ids:
@@ -54,7 +50,10 @@ Reply with ONLY the post_id of the best post to show next. No explanation."""
     return chosen
 
 async def main() -> None:
-    # ✅ OpenAI client using grader-injected API_KEY and API_BASE_URL
+    print(f"[DEBUG] API_BASE_URL={API_BASE_URL}", flush=True)
+    print(f"[DEBUG] MODEL_NAME={MODEL_NAME}", flush=True)
+    print(f"[DEBUG] API_KEY_SET={bool(API_KEY)}", flush=True)
+
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 
     rewards: List[float] = []
@@ -78,6 +77,7 @@ async def main() -> None:
                 break
 
             interests = obs.get("user_interest_vector", {})
+
             post_id = select_post_with_llm(client, candidate_pool, interests)
 
             r = await http.post("/step", json={"post_id": post_id})
@@ -101,8 +101,8 @@ async def main() -> None:
     finally:
         try:
             await http.aclose()
-        except Exception as e:
-            print(f"[DEBUG] close error: {e}", flush=True)
+        except Exception:
+            pass
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
 if __name__ == "__main__":
