@@ -18,6 +18,7 @@ app = create_app(
     FeedRankingAction, 
     FeedRankingObservation,
     env_name="social_media_env"
+    tasks=ALL_TASKS
 )
 
 
