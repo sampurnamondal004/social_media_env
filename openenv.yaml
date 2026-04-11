@@ -7,4 +7,8 @@ env_vars:
   MODEL_NAME: "meta-llama/Llama-3.3-70B-Instruct"
 tasks:
   - id: "engagement_optimization"
-    weight: 1.0
+    weight: 0.4
+  - id: "relevance_ranking"
+    weight: 0.3
+  - id: "diversity_optimization"
+    weight: 0.3
