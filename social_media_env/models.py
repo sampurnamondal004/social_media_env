@@ -5,7 +5,7 @@ from openenv.core.env_server import Action, Observation, State
 
 
 class FeedRankingAction(Action):
-    post_id: str  # ✅ string, not int
+    post_id: str  
 
 
 class FeedRankingObservation(Observation):
