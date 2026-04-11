@@ -1,6 +1,6 @@
+from __future__ import annotations
 import os
 from openai import OpenAI
-from __future__ import annotations
 from typing import Any, Dict, Optional
 from openenv.core.client_types import StepResult
 from openenv.core.env_client import EnvClient
