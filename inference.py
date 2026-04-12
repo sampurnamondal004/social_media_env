@@ -13,20 +13,18 @@ from openai import OpenAI
 from social_media_env.client import SocialFeedEnv
 from social_media_env.models import FeedRankingAction
 
-# Environment Variables
 API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
 MODEL_NAME = os.getenv("MODEL_NAME") or "meta-llama/Llama-3.3-70B-Instruct"
 ENV_URL = os.getenv("ENV_URL", "https://sampurnamondal012-ocial-media-ranking-env.hf.space")
 
-TASK_NAME = os.getenv("SOCIAL_MEDIA_ENV_TASK", "engagement_optimization")
-BENCHMARK = os.getenv("SOCIAL_MEDIA_ENV_BENCHMARK", "social_media_env")
 
+TASKS = ["engagement_optimization", "relevance_ranking", "diversity_optimization"]
+BENCHMARK = "social_media_env"
 MAX_STEPS = 5
 TEMPERATURE = 0.0
 MAX_TOKENS = 50
 SUCCESS_SCORE_THRESHOLD = 0.1
-
 _MAX_REWARD_PER_STEP = 1.0
 MAX_TOTAL_REWARD = MAX_STEPS * _MAX_REWARD_PER_STEP
 
@@ -48,9 +46,7 @@ def log_start(task: str, env: str, model: str) -> None:
 
 def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
     error_val = error if error else "null"
-    done_val = str(done).lower()
-    print(f"[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}", flush=True)
-
+    print(f"[STEP] step={step} action={action} reward={reward:.2f} done={str(done).lower()} error={error_val}", flush=True)
 
 
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
@@ -96,59 +92,61 @@ def get_model_message(client: OpenAI, step: int, obs, last_reward: float, histor
         return candidates[0]["post_id"] if candidates else ""
 
 
-async def main() -> None:
-    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
-
-    
+async def run_task(client: OpenAI, task_name: str) -> None:
+    """Run a single task episode."""
     env = SocialFeedEnv(base_url=ENV_URL)
-
-    history: List[str] = []
     rewards: List[float] = []
     steps_taken = 0
     score = 0.0
     success = False
 
-    log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
+    log_start(task=task_name, env=BENCHMARK, model=MODEL_NAME)
 
     try:
         result = await env.reset()
         last_obs = result.observation
         last_reward = 0.0
+        history: List[str] = []
 
         for step in range(1, MAX_STEPS + 1):
             if result.done:
                 break
 
             post_id = get_model_message(client, step, last_obs, last_reward, history)
-
             result = await env.step(FeedRankingAction(post_id=post_id))
             obs = result.observation
             reward = result.reward or 0.0
             done = result.done
-            error = None
 
             rewards.append(reward)
             steps_taken = step
             last_obs = obs
             last_reward = reward
 
-            log_step(step=step, action=f"select({post_id})", reward=reward, done=done, error=error)
-
+            log_step(step=step, action=f"select({post_id})", reward=reward, done=done, error=None)
             history.append(f"Step {step}: {post_id!r} -> reward {reward:+.2f}")
 
             if done:
                 break
 
         score = sum(rewards) / MAX_TOTAL_REWARD if MAX_TOTAL_REWARD > 0 else 0.0
-        score = min(max(score, 0.001), 0.999)
+        score = min(max(score, 0.001), 0.994)
         success = score >= SUCCESS_SCORE_THRESHOLD
 
     finally:
         try:
             await env.close()
         except Exception as e:
-            print(f"[DEBUG] env.close() error (container cleanup): {e}", flush=True)
+            print(f"[DEBUG] env.close() error: {e}", flush=True)
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
+
+
+async def main() -> None:
+    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+
+   
+    for task_name in TASKS:
+        await run_task(client, task_name)
 
 
 if __name__ == "__main__":
