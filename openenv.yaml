@@ -4,3 +4,10 @@ type: space
 runtime: fastapi
 app: social_media_env.server.app:app
 port: 7860
+tasks:
+  - id: engagement_optimization
+    grader: /grader
+  - id: relevance_ranking
+    grader: /grader
+  - id: diversity_optimization
+    grader: /grader

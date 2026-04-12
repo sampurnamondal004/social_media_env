@@ -24,24 +24,9 @@ app = create_app(
 async def get_tasks():
     return {
         "tasks": [
-            {
-                "id": "engagement_optimization",
-                "description": "Optimize feed for user engagement",
-                "grader_url": "/grader",
-                "weight": 0.4
-            },
-            {
-                "id": "relevance_ranking",
-                "description": "Rank posts by relevance to user interests",
-                "grader_url": "/grader",
-                "weight": 0.3
-            },
-            {
-                "id": "diversity_optimization",
-                "description": "Optimize feed for content diversity",
-                "grader_url": "/grader",
-                "weight": 0.3
-            }
+            {"id": "engagement_optimization", "grader": "/grader", "weight": 0.4},
+            {"id": "relevance_ranking", "grader": "/grader", "weight": 0.3},
+            {"id": "diversity_optimization", "grader": "/grader", "weight": 0.3},
         ]
     }
 
