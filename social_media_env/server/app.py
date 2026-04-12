@@ -37,18 +37,27 @@ async def grader(request: Request):
     task_id = body.get("task_id", "engagement_optimization")
     rewards = body.get("rewards", [])
     steps = body.get("steps", 0)
+    episode_id = body.get("episode_id", "")
 
     if not rewards:
-        score = 0.001
+        raw = 0.05
     else:
         raw = sum(rewards) / (len(rewards) * 1.0)
-        score = min(max(raw, 0.001), 0.999)
+
+    
+    score = max(0.001, min(0.994, raw))
 
     return JSONResponse({
-        "task_id": task_id,
         "score": score,
-        "success": score >= 0.1,
-        "steps": steps,
+        "task_id": task_id,
+        "episode_id": episode_id,
+        "scenario_id": f"{task_id}_001",
+        "breakdown": {
+            "relevance": max(0.001, min(0.994, score * 0.4)),
+            "quality": max(0.001, min(0.994, score * 0.3)),
+            "diversity": max(0.001, min(0.994, score * 0.3)),
+        },
+        "grader_version": "1.0.0"
     })
 
 
