@@ -6,20 +6,44 @@ from openenv.core.env_server import create_app
 from ..models import FeedRankingAction, FeedRankingObservation
 from ..social_media_env import FeedRankingEnvironment
 
-#API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+HF_API_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 
-HF_API_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1" )
 def env_factory():
     return FeedRankingEnvironment(base_url=HF_API_URL)
 
 
 app = create_app(
     env_factory,
-    FeedRankingAction, 
+    FeedRankingAction,
     FeedRankingObservation,
     env_name="social_media_env"
-    
 )
+
+
+@app.get("/tasks")
+async def get_tasks():
+    return {
+        "tasks": [
+            {
+                "id": "engagement_optimization",
+                "description": "Optimize feed for user engagement",
+                "grader_url": "/grader",
+                "weight": 0.4
+            },
+            {
+                "id": "relevance_ranking",
+                "description": "Rank posts by relevance to user interests",
+                "grader_url": "/grader",
+                "weight": 0.3
+            },
+            {
+                "id": "diversity_optimization",
+                "description": "Optimize feed for content diversity",
+                "grader_url": "/grader",
+                "weight": 0.3
+            }
+        ]
+    }
 
 
 @app.post("/grader")
@@ -42,10 +66,10 @@ async def grader(request: Request):
         "steps": steps,
     })
 
+
 def main():
     """Entry point for the server script."""
     import uvicorn
-   
     port = int(os.environ.get("PORT", 7860))
     uvicorn.run("social_media_env.server.app:app", host="0.0.0.0", port=port)
 
